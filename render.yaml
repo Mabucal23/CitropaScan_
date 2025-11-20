@@ -11,11 +11,14 @@ services:
     healthCheckPath: /
     autoDeploy: true # Automatically redeploy when you push to GitHub
     envVars:
+      # CRITICAL: Fixes Python 3.13 compatibility issue
+      - key: RENDER_PYTHON_VERSION
+        value: 3.11.8 # Recommended: Use 3.11.8 or 3.12.2 for stability
       # CRITICAL: This is where you securely store your serviceAccountKey.json content.
       # Render will automatically parse the JSON string when deploying.
       - key: GOOGLE_CREDENTIALS_JSON
         # NOTE: You must set the ACTUAL JSON value in the Render UI for security.
-        # Here, we set the sync option to prevent exposing the secret here.
+        # We set sync: false to prevent the secret from being stored in this file.
         sync: false 
       # Set your Flask App's secret key (generate a long random string)
       - key: SECRET_KEY 
