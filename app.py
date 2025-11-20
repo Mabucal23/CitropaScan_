@@ -73,26 +73,22 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 mail = Mail(app)
 
-# Firebase setup using env var JSON
-SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-if not os.path.exists(SERVICE_ACCOUNT_PATH):
-    print(f"❌ CRITICAL ERROR: serviceAccountKey.json not found at {SERVICE_ACCOUNT_PATH}")
+service_account_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+if not service_account_json:
+    print("❌ CRITICAL ERROR: Missing GOOGLE_CREDENTIALS_JSON")
     exit(1)
 
 try:
-    cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+    # Parse the JSON string into a dictionary
+    cred_dict = json.loads(service_account_json)
+    # Initialize Firebase with the dictionary
+    cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
     print("✅ Firebase initialized")
 except Exception as e:
-    print(f"❌ ERROR initializing Firebase: {e}")
+    print(f"❌ Firebase initialization error: {e}")
     exit(1)
-
-FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_API_KEY")
-if not FIREBASE_WEB_API_KEY:
-    print("❌ CRITICAL ERROR: Missing FIREBASE_API_KEY in .env")
-    exit(1)
-
 
 # Load ML model
 MODEL_PATH = "accDiseases.keras"
