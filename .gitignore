@@ -1,2 +1,22 @@
-# Secrets and private keys
-serviceAccountKey.json
+# 1. Environment Variable Files (CRITICAL SECRETS)
+# Prevents files containing API keys, database URLs, etc. from being committed.
+.env
+.flaskenv
+
+# 2. Python Environment & Cache
+# Dependencies are managed via requirements.txt, so we ignore the folders they create.
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# 3. Operating System Files (Mac/Windows)
+.DS_Store
+Thumbs.db
+
+# 4. Build/Compiled Output
+# Render creates a build environment; don't commit temporary build outputs.
+build/
+dist/
+*.egg-info
