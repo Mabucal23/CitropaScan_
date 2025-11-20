@@ -5,16 +5,15 @@ Flask==3.0.3
 gunicorn==22.0.0
 
 # Image Processing & Machine Learning
-opencv-python==4.10.0.84 
-tensorflow==2.16.1
+# Allowing the latest minor version of opencv-python
+opencv-python>=4.10.0.84 
+# Using a known, recent, and available version of TensorFlow
+tensorflow==2.20.0 
 numpy==1.26.4
+python-dotenv==1.0.1
 
 # Firebase/Google Cloud
 firebase-admin==6.5.0
 requests==2.32.3
 werkzeug==3.0.3
-
-# Utilities
 Flask-Mail==0.9.1
-
-python-dotenv==1.0.1
