@@ -9,7 +9,7 @@ opencv-python>=4.10.0.84
 opencv-contrib-python>=4.10.0.84
 Pillow>=10.0.0
 tensorflow==2.20.0
-numpy==1.26.4
+numpy>=1.26.0
 python-dotenv==1.0.1
 
 # Firebase/Google Cloud
