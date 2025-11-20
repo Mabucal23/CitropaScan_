@@ -1,0 +1,301 @@
+/* --- CSS Variables (Our Theme) --- */
+        :root {
+            --font-main: 'Poppins', Arial, sans-serif;
+            --color-primary: #ff8c42; /* Orange */
+            --color-primary-dark: #e6732e;
+            --color-secondary: #28a745; /* Green */
+            --color-danger: #ef4444; /* Red */
+            --color-text: #f4f4f4;
+            --color-text-muted: #ccc;
+            --color-dark: #222;
+            --border-radius: 12px;
+            --bg-glass: rgba(255, 255, 255, 0.1);
+            --bg-glass-dark: rgba(0, 0, 0, 0.2);
+            --border-glass: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        /* --- Base Styles --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            color: var(--color-text);
+            /* Calamansi Background */
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://i.pinimg.com/736x/fc/d7/02/fcd702692da204cc1f44efd66248a854.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* --- Back Button --- */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+        }
+
+        /* --- Reusable Button Styles --- */
+        .btn {
+            display: inline-block;
+            padding: 10px 25px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        .btn-primary:hover {
+            background: var(--color-primary-dark);
+            border-color: var(--color-primary-dark);
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: var(--color-danger);
+            color: white;
+            border-color: var(--color-danger);
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+            border-color: #b91c1c;
+            transform: translateY(-2px);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--color-text);
+            border-color: var(--color-text);
+        }
+        .btn-outline:hover {
+            background: var(--color-text);
+            color: var(--color-dark);
+        }
+        /* Bootstrap Secondary as Outline */
+        .btn-secondary {
+            background: transparent;
+            color: #ccc;
+            border-color: #ccc;
+        }
+        .btn-secondary:hover {
+            background: #ccc;
+            color: var(--color-dark);
+            border-color: #ccc;
+        }
+
+        /* --- Profile Card (Glass) --- */
+        .profile-container {
+            max-width: 850px;
+            margin: 80px auto 40px auto; /* Added margin-top for back-btn */
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            border: var(--border-glass);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        /* --- Profile Header --- */
+        .profile-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .profile-pic-label {
+            cursor: pointer;
+            display: inline-block;
+            position: relative;
+        }
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--color-primary); /* Themed border */
+            transition: transform 0.3s;
+        }
+        .profile-pic:hover {
+            transform: scale(1.05);
+        }
+        .profile-icon {
+            font-size: 120px;
+            color: var(--color-primary); /* Themed icon */
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .profile-header h2 {
+            margin: 15px 0 5px;
+            color: var(--color-text);
+        }
+        .profile-header p {
+            color: var(--color-text-muted);
+            margin: 0;
+        }
+        .profile-header small {
+            color: #aaa;
+        }
+
+        /* --- Profile Sections --- */
+        .profile-section {
+            margin: 25px 0;
+            padding-top: 25px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .profile-section h3 {
+            margin-bottom: 15px;
+            color: var(--color-text);
+            font-weight: 600;
+        }
+        .profile-section h3 i {
+            color: var(--color-primary);
+            margin-right: 10px;
+            width: 25px; /* Align icons */
+        }
+        .profile-section p {
+            color: var(--color-text-muted);
+            margin-bottom: 0.5rem; /* Add spacing between info lines */
+        }
+        .profile-section p strong {
+            color: var(--color-text);
+            min-width: 120px; /* Adjust width for longer labels */
+            display: inline-block;
+        }
+
+        /* --- History Table --- */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: var(--color-text-muted);
+        }
+        .history-table th,
+        .history-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: left;
+        }
+        .history-table th {
+            background: var(--bg-glass-dark);
+            color: var(--color-text);
+            font-weight: 600;
+        }
+        .history-table tr:last-child td {
+            border-bottom: none;
+        }
+        .history-table tr:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- Actions --- */
+        .profile-actions {
+            text-align: center;
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        /* --- EDITED: Removed all custom #editModal CSS --- */
+
+        
+        /* --- EDITED: Combined Bootstrap Modal Theme Override --- */
+        #logoutModal .modal-content,
+        #editProfileModal .modal-content {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--border-radius);
+            border: var(--border-glass);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            color: var(--color-text);
+        }
+        #logoutModal .modal-header,
+        #editProfileModal .modal-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #logoutModal .modal-footer,
+        #editProfileModal .modal-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        #logoutModal .modal-title,
+        #editProfileModal .modal-title {
+            color: var(--color-text);
+            font-weight: 600;
+        }
+        #editProfileModal .modal-title i {
+            color: var(--color-primary); /* Icon color for edit modal */
+        }
+        .btn-close {
+            filter: invert(1) brightness(2); /* Makes 'X' white */
+        }
+        
+        /* --- NEW: Form styling scoped to Edit Modal Body --- */
+        #editProfileModal .modal-body label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            margin-top: 15px;
+            color: #eee;
+        }
+        #editProfileModal .modal-body label i {
+            width: 20px;
+            margin-right: 5px;
+            color: var(--color-primary);
+        }
+        #editProfileModal .modal-body input[type="text"],
+        #editProfileModal .modal-body input[type="email"],
+        #editProfileModal .modal-body input[type="tel"] {
+            width: 100%;
+            padding: 12px 15px;
+            font-family: var(--font-main);
+            color: var(--color-text);
+            background: var(--bg-glass-dark);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        #editProfileModal .modal-body input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px rgba(255, 140, 66, 0.2);
+        }
+        
+        /* --- NEW: Styling for Flash Alerts --- */
+        .alert {
+            background: var(--bg-glass-dark);
+            border: 1px solid var(--border-glass);
+            color: var(--color-text);
+            font-weight: 600;
+        }
+        .alert-success {
+            background: rgba(40, 167, 69, 0.3); /* Green */
+            border-color: var(--color-secondary);
+            color: #f4f4f4;
+        }
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.3); /* Red */
+            border-color: var(--color-danger);
+            color: #f4f4f4;
+        }
+        .alert-info {
+            background: rgba(66, 153, 225, 0.3); /* Blue */
+            border-color: #4299e1;
+            color: #f4f4f4;
+        }
+        .alert .btn-close {
+            filter: none; /* Use default color for alert close */
+            color: inherit;
+        }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn More - CitroPaScan</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/learnmore.css') }}">
+</head>
+<body class="bg-light"> <nav>
+        <a href="{{ url_for('landing') }}" class="nav-logo">
+            <span class="citro">Citro</span><span class="pa">Pa</span><span class="scan">Scan</span>
+        </a>
+        <div class="nav-links">
+            <a href="{{ url_for('services') }}">Services</a>
+            <a href="{{ url_for('about') }}">About</a>
+            <a href="{{ url_for('landing') }}">Back to Home</a>
+        </div>
+    </nav>
+    
+    <main class="content-wrapper">
+
+        <section class="hero-section text-center">
+            <div class="container">
+                <h1>Learn More About <span class="citro">CitroPaScan</span></h1>
+                <p>Your smart companion for <strong>Calamansi Health Monitoring</strong> using Artificial Intelligence.</p>
+            </div>
+        </section>
+
+        <section class="features-section py-5">
+            <div class="container">
+                <div class="row text-center mb-4">
+                    <h2 class="fw-bold">Why Choose CitroPaScan?</h2>
+                    <p class="subtitle">Discover the key features that make our system powerful and reliable</p>
+                </div>
+                
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="glass-card">
+                            <i class="fa-solid fa-leaf feature-icon"></i>
+                            <h5 class="feature-card-title">Disease Detection</h5>
+                            <p>Identify common calamansi diseases such as Citrus Canker, Leaf Spot, and Powdery Mildew with high accuracy.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-card">
+                            <i class="fa-solid fa-brain feature-icon"></i>
+                            <h5 class="feature-card-title">AI-Powered Insights</h5>
+                            <p>Using Convolutional Neural Networks, CitroPaScan provides reliable image-based analysis in real-time.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-card">
+                            <i class="fa-solid fa-users feature-icon"></i>
+                            <h5 class="feature-card-title">Farmer-Friendly</h5>
+                            <p>Designed for ease of use, even with minimal technical knowledge, empowering farmers to protect their crops.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="container glass-card cta-section">
+            <h2>Be Part of the Future of Agriculture</h2>
+            <p>CitroPaScan bridges technology and farming, helping calamansi growers boost productivity and reduce losses.</p>
+            <a href="{{ url_for('services') }}" class="btn btn-secondary">Explore Our Services</a>
+        </section>
+        
+    </main>
+
+    <footer class="page-footer">
+        <p class="mb-0">© 2025 CitroPaScan | All Rights Reserved</p>
+    </footer>
+
+    </body>
+</html>

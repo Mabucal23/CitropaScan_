@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CitroPaScan - AI-Powered Crop Health Detection</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body>
+    
+    <nav>
+        <a href="{{ url_for('index') }}" class="nav-logo">
+            <span class="citro">Citro</span><span class="pa">Pa</span><span class="scan">Scan</span>
+        </a>
+        
+        <div class="nav-links">
+            <a href="{{ url_for('services') }}">Services</a>
+            <a href="{{ url_for('about') }}">About</a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline">Login</a>
+            <a href="{{ url_for('signup') }}" class="btn btn-primary">Signup</a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="hero-card">
+            <h1 class="welcome-text">Welcome to</h1>
+            <div class="logo">
+                <span class="citro">Citro</span><span class="pa">Pa</span><span class="scan">Scan</span>
+            </div>
+            <p class="tagline">Empowering Healthier Crops with AI-Powered Precision!</p>
+            
+            <a href="{{ url_for('learnmore') }}" class="btn btn-secondary">
+                Learn more
+            </a>
+        </div>
+    </main>
+    
+    </body>
+</html>

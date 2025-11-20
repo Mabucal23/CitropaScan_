@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CitroPaScan Services</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+  </head>
+  <body>
+    <nav>
+      <a href="{{ url_for('landing') }}" class="nav-logo"><span class="citro">Citro</span><span class="pa">Pa</span><span class="scan">Scan</span></a>
+      <div class="nav-links">
+        <a href="{{ url_for('learnmore') }}">Learn More</a>
+        <a href="{{ url_for('about') }}">About</a>
+        <a href="{{ url_for('landing') }}">Back to Home</a>
+      </div>
+    </nav>
+
+    <main class="content-wrapper">
+      <section class="services-section container">
+        <div class="text-center mb-5">
+          <h2 class="page-title">Our Services</h2>
+          <p class="subtitle">Smart solutions for citrus fruit and leaf health monitoring</p>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-camera service-icon"></i>
+              <h5 class="glass-card-title">Real-Time Scanning</h5>
+              <p>Capture and analyze citrus fruits and leaves instantly using our AI-powered scanning system.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-disease service-icon"></i>
+              <h5 class="glass-card-title">Disease Detection</h5>
+              <p>Identify common citrus diseases early to prevent crop damage and improve yields.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-chart-line service-icon"></i>
+              <h5 class="glass-card-title">Analytics & Reports</h5>
+              <p>Track fruit health trends with detailed analytics and downloadable reports.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-leaf service-icon"></i>
+              <h5 class="glass-card-title">Leaf Monitoring</h5>
+              <p>Detect health conditions of citrus leaves to optimize plant care and management.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-robot service-icon"></i>
+              <h5 class="glass-card-title">AI Guidance</h5>
+              <p>Receive actionable recommendations powered by artificial intelligence to improve crop quality.</p>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="glass-card">
+              <i class="fas fa-cloud service-icon"></i>
+              <h5 class="glass-card-title">Cloud Storage</h5>
+              <p>Securely store and access your scan history anytime, anywhere.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <p class="mb-0">© 2025 CitroPaScan | All Rights Reserved</p>
+    </footer>
+  </body>
+</html>

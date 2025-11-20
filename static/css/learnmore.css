@@ -1,0 +1,221 @@
+        /* --- CSS Variables (From Our Theme) --- */
+        :root {
+            --font-main: 'Poppins', Arial, sans-serif;
+            --color-primary: #ff8c42; /* Original Orange */
+            --color-primary-dark: #e6732e;
+            --color-secondary: #28a745; /* Original Green */
+            --color-secondary-dark: #218838;
+            --color-text: #f4f4f4;
+            --color-dark: #222;
+            --border-radius: 12px;
+        }
+
+        /* --- Basic Reset & Body --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            color: var(--color-text);
+            /* Updated Calamansi Background */
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+                        url('https://i.pinimg.com/736x/fc/d7/02/fcd702692da204cc1f44efd66248a854.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* Keeps image still on scroll */
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        /* Remove Bootstrap's default body background */
+        body.bg-light {
+            background-color: transparent !important;
+        }
+
+        /* --- Reusable Button Styles (From Our Theme) --- */
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            border-radius: 50px; /* Pill shape */
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+        .btn-primary:hover {
+            background: var(--color-primary-dark);
+            border-color: var(--color-primary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
+        }
+        .btn-secondary {
+            background: var(--color-secondary);
+            color: white;
+            border-color: var(--color-secondary);
+        }
+        .btn-secondary:hover {
+            background: var(--color-secondary-dark);
+            border-color: var(--color-secondary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--color-text);
+            border-color: var(--color-text);
+        }
+        .btn-outline:hover {
+            background: var(--color-text);
+            color: var(--color-dark);
+        }
+
+        /* --- Navigation Bar (From Our Theme) --- */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.1); 
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        nav .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-text);
+            text-decoration: none;
+        }
+        nav .nav-logo .citro { color: var(--color-primary); }
+        nav .nav-logo .scan { color: var(--color-secondary); }
+        nav .nav-logo .pa { color: var(--color-text); }
+        nav .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 25px; /* Spacing between links */
+        }
+        nav .nav-links a {
+            color: var(--color-text);
+            text-decoration: none;
+            font-weight: 400;
+            transition: color 0.3s ease;
+        }
+        nav .nav-links a:not(.btn):hover {
+            color: var(--color-primary);
+        }
+        
+        /* --- Main Content Wrapper --- */
+        .content-wrapper {
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+        
+        /* --- Reusable Glass Card Style --- */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: var(--border-radius);
+            padding: 40px 30px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            text-align: center;
+            height: 100%; /* Makes feature cards same height */
+            transition: transform 0.3s ease;
+        }
+        .glass-card:hover {
+             transform: translateY(-5px);
+        }
+        
+        /* --- Section-Specific Styling --- */
+        .hero-section {
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+        .hero-section h1 {
+            font-weight: 700;
+            font-size: 2.8rem;
+        }
+        .hero-section .citro {
+            color: var(--color-primary);
+        }
+        .hero-section p {
+            font-size: 1.2rem;
+            color: #eee;
+        }
+
+        .features-section h2 {
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        .features-section .subtitle {
+            color: #ccc;
+            margin-bottom: 30px;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--color-primary); /* Use theme color */
+            margin-bottom: 15px;
+        }
+        .feature-card-title {
+            font-weight: 600;
+            font-size: 1.25rem;
+            color: var(--color-text);
+        }
+        .glass-card p {
+            color: #ddd; /* Slightly dimmer text for paragraphs */
+        }
+
+        .cta-section {
+            margin-top: 50px;
+        }
+        .cta-section h2 {
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        /* --- Footer --- */
+        .page-footer {
+            text-align: center;
+            padding: 30px 0;
+            color: #ccc;
+            background: transparent; /* No light background */
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 30px;
+        }
+        
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                gap: 15px;
+                padding: 20px;
+            }
+            nav .nav-links {
+                justify-content: center;
+                width: 100%;
+                gap: 15px;
+            }
+            .hero-section h1 {
+                font-size: 2.2rem;
+            }
+        }
+        @media (max-width: 480px) {
+            nav .nav-links {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }

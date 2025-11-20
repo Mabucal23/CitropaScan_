@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CitropaScan - Realtime Monitoring Dashboard</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  </head>
+  <body>
+    <nav>
+      <a href="{{ url_for('landing') }}" class="nav-logo"><span class="citro">Citro</span><span class="pa">Pa</span><span class="scan">Scan</span></a>
+
+      <div class="nav-links">
+        <div class="live-badge">
+          <div class="live-dot"></div>LIVE
+        </div>
+        <a href="{{ url_for('report') }}" class="btn btn-primary">View Reports</a>
+        <div class="datetime" id="datetime">Loading...</div>
+       <a href="{{ url_for('profile') }}" class="profile-avatar">
+    {% if session.user.profile_pic %}
+        <img src="{{ url_for('static', filename=session.user.profile_pic) }}" alt="Profile">
+    {% else %}
+        <img src="{{ url_for('static', filename='images/abstract-profile.png') }}" alt="Profile">
+    {% endif %}
+</a>
+      </div>
+    </nav>
+
+    <main class="dashboard">
+      <div class="main-grid">
+        <div class="live-feed-section">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fas fa-video camera-icon"></i>
+                <span>Live Camera Feed</span>
+              </div>
+            </div>
+            <div class="card-content">
+              <div class="video-container">
+                <img id="video_feed" src="{{ url_for('video_feed') }}" alt="Live camera feed of calamansi plants" />
+                <div class="rec-indicator">● REC</div>
+                <div class="camera-label">
+                  <span class="desktop-label">Camera 01 - Field Section A</span>
+                  <span class="mobile-label">Cam 01 - Field A</span>
+                </div>
+              </div>
+              <div style="margin-top: 15px; text-align: center;">
+                <button id="toggleCamera" class="camera-toggle-btn">Turn Off</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-section">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">Detection Summary</h3>
+            </div>
+            <div class="card-content">
+              <div class="summary-stats">
+                <div class="total-count" id="totalScanned">{{ total_scans }}</div>
+                <div class="stat-label">Total Scanned</div>
+              </div>
+              <div class="health-rate">
+                <div class="health-rate-header">
+                  <span>Health Rate</span>
+                  <span class="health-percentage" id="healthPercentage">0%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progressFill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="counters-grid">
+        <div class="card counter-card healthy-card">
+          <div class="card-header">
+            <div class="counter-title">
+              <i class="fas fa-check-circle text-success"></i>
+              <span>Healthy Calamansi</span>
+            </div>
+            <div class="badge badge-good">Good</div>
+          </div>
+          <div class="card-content">
+            <div class="counter-stats">
+              <div class="counter-number healthy-count" id="healthy-count">{{ healthy_count }}</div>
+              <div class="counter-details">
+                <div class="counter-label">Detected Today</div>
+                <div class="counter-percentage" id="goodPercentage">{{ good_percentage }}% of total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card counter-card diseased-card">
+          <div class="card-header">
+            <div class="counter-title">
+              <i class="fas fa-times-circle text-danger"></i>
+              <span>Diseased Calamansi</span>
+            </div>
+            <div class="badge badge-alert">Alert</div>
+          </div>
+          <div class="card-content">
+            <div class="counter-stats">
+              <div class="counter-number diseased-count" id="diseased-count">{{ diseased_count }}</div>
+              <div class="counter-details">
+                <div class="counter-label">Detected Today</div>
+                <div class="counter-percentage" id="diseasedPercentage">{{ diseased_percentage }}% of total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // --- Counter Update Script (Unchanged) ---
+      function updateCounters() {
+        fetch('/api/counters')
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById('totalScanned').textContent = data.total_scans
+            document.getElementById('healthy-count').textContent = data.healthy_count
+            document.getElementById('diseased-count').textContent = data.diseased_count
+            document.getElementById('goodPercentage').textContent = data.good_percentage + '% of total'
+            document.getElementById('diseasedPercentage').textContent = data.diseased_percentage + '% of total'
+      
+            // Update progress bar
+            let healthPercent = parseFloat(data.good_percentage) || 0
+            document.getElementById('healthPercentage').textContent = healthPercent.toFixed(1) + '%'
+            document.getElementById('progressFill').style.width = healthPercent + '%'
+          })
+      }
+      setInterval(updateCounters, 5000)
+      updateCounters() // Run on page load
+      
+      // --- Camera Toggle Script (MODIFIED) ---
+      let cameraOn = true
+      const videoFeed = document.getElementById('video_feed')
+      const toggleBtn = document.getElementById('toggleCamera')
+      const originalFeedSrc = videoFeed.src // Store the original feed source
+      
+      toggleBtn.addEventListener('click', () => {
+        cameraOn = !cameraOn
+        if (cameraOn) {
+          videoFeed.src = originalFeedSrc // Resume feed
+          toggleBtn.textContent = 'Turn Off'
+          toggleBtn.classList.remove('off') // **FIX ADDED: Remove 'off' class (makes it green)
+        } else {
+          videoFeed.src = '' // Stops updating feed
+          toggleBtn.textContent = 'Turn On'
+          toggleBtn.classList.add('off') // **FIX ADDED: Add 'off' class (makes it red)
+        }
+      })
+      
+      // --- Datetime Script (Added) ---
+      function updateTime() {
+        const now = new Date()
+        const options = {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }
+        document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options)
+      }
+      setInterval(updateTime, 1000) // Update every second
+      updateTime() // Run on page load
+    </script>
+  </body>
+</html>

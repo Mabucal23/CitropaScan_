@@ -1,0 +1,182 @@
+
+      /* --- CSS Variables (From Our Theme) --- */
+      :root {
+        --font-main: 'Poppins', Arial, sans-serif;
+        --color-primary: #ff8c42;
+        --color-primary-dark: #e6732e;
+        --color-secondary: #28a745;
+        --color-text: #f4f4f4;
+        --color-dark: #222;
+        --border-radius: 12px;
+      }
+      
+      /* --- Basic Reset & Body --- */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: var(--font-main);
+        color: var(--color-text);
+        /* Calamansi Background */
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://i.pinimg.com/736x/fc/d7/02/fcd702692da204cc1f44efd66248a854.jpg');
+      
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        line-height: 1.6;
+        /* Flexbox to center the card */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px 0; /* Add padding for smaller screens */
+      }
+      
+      /* --- Glass Card Style for the Signup Form --- */
+      .signup-container {
+        position: relative;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: var(--border-radius);
+        padding: 40px 50px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        max-width: 450px;
+        width: 95%; /* Use 95% instead of 100% for small screens */
+        margin: 20px 0;
+      }
+      
+      /* --- Close Button --- */
+      .close-button {
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 2.2rem;
+        color: #ccc;
+        text-decoration: none;
+        line-height: 1;
+        transition: color 0.3s ease;
+      }
+      .close-button:hover {
+        color: var(--color-text);
+      }
+      
+      /* --- Header & Logo --- */
+      .signup-header {
+        text-align: center;
+        margin-bottom: 25px;
+      }
+      .signup-header h1 {
+        font-size: 1.5rem;
+        font-weight: 300;
+        margin-bottom: 5px;
+      }
+      .logo {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      }
+      .citro {
+        color: var(--color-primary);
+      }
+      .pa {
+        color: var(--color-text);
+      }
+      .scan {
+        color: var(--color-secondary);
+      }
+      
+      /* --- Error Message Styling --- */
+      .error-msg {
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        text-align: center;
+        font-weight: 600;
+        background: rgba(255, 82, 82, 0.15);
+        border: 1px solid rgba(255, 82, 82, 0.3);
+        color: #ffc8c8;
+      }
+      
+      /* --- Form Styling --- */
+      .form-group {
+        margin-bottom: 15px; /* Tighter spacing for more fields */
+      }
+      .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #eee;
+      }
+      .form-group input {
+        width: 100%;
+        padding: 12px 15px;
+        font-family: var(--font-main);
+        color: var(--color-text);
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+      }
+      .form-group input::placeholder {
+        color: #aaa;
+      }
+      .form-group input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        background: rgba(0, 0, 0, 0.3);
+        box-shadow: 0 0 10px rgba(255, 140, 66, 0.2);
+      }
+      
+      /* --- Signup Button --- */
+      .signup-button {
+        width: 100%;
+        padding: 12px 30px;
+        border: none;
+        border-radius: 50px; /* Pill shape */
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: var(--color-primary);
+        color: white;
+        margin-top: 10px;
+      }
+      .signup-button:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-3px);
+        box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
+      }
+      
+      /* --- Login Link --- */
+      .login-link {
+        text-align: center;
+        margin-top: 25px;
+        color: #ddd;
+      }
+      .login-link a {
+        color: var(--color-primary);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .login-link a:hover {
+        text-decoration: underline;
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 480px) {
+        .signup-container {
+          padding: 30px 25px;
+        }
+        .signup-header h1 {
+          font-size: 1.2rem;
+        }
+        .logo {
+          font-size: 2rem;
+        }
+      }
