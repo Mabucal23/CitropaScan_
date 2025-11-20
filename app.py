@@ -20,6 +20,7 @@ load_dotenv()
 REQUIRED_ENV_VARS = [
     "GOOGLE_CREDENTIALS_JSON",
     "FIREBASE_WEB_API_KEY",
+    "FIREBASE_API_KEY",
     "FLASK_SECRET_KEY",
     "MAIL_SERVER",
     "MAIL_PORT",
@@ -92,7 +93,7 @@ except Exception as e:
     exit(1)
 
 # Load ML model
-MODEL_PATH = "accDiseases.keras"
+MODEL_PATH = "accDiseases_quantized.tflite"
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
     print("✅ Model loaded successfully!")
