@@ -160,10 +160,10 @@ def initialize_camera_with_failover(sources, wait_seconds=1.0):
     return None
 
 video_sources = [
-    f"http://{PI_IP_ADDRESS}:5000/video_feed",
+   f"http://{PI_IP_ADDRESS}:5000/video_feed",
     "http://10.32.181.201:5000/video_feed",
-    0   # local camera fallback
-]
+    1,  # Try index 1
+    0
 
 camera = initialize_camera_with_failover(video_sources)
 
