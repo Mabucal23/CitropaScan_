@@ -3,8 +3,7 @@ services:
   # 1. Web Service Definition (Your Flask App)
   - type: web
     name: citropascan-flask  # Customize this name
-    env: python
-    region: frankfurt # Use a region close to your users (e.g., oregon or frankfurt)
+    env: python # Use a region close to your users (e.g., oregon or frankfurt)
     plan: free # Use 'standard' for a paid, faster service
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn app:app" # Must match your Procfile start command
