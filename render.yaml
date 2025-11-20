@@ -1,0 +1,22 @@
+# This file defines your infrastructure on Render
+services:
+  # 1. Web Service Definition (Your Flask App)
+  - type: web
+    name: citropascan-flask  # Customize this name
+    env: python
+    region: oregon # Use a region close to your users (e.g., oregon or frankfurt)
+    plan: free # Use 'standard' for a paid, faster service
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app" # Must match your Procfile start command
+    healthCheckPath: /
+    autoDeploy: true # Automatically redeploy when you push to GitHub
+    envVars:
+      # CRITICAL: This is where you securely store your serviceAccountKey.json content.
+      # Render will automatically parse the JSON string when deploying.
+      - key: GOOGLE_CREDENTIALS_JSON
+        # NOTE: You must set the ACTUAL JSON value in the Render UI for security.
+        # Here, we set the sync option to prevent exposing the secret here.
+        sync: false 
+      # Set your Flask App's secret key (generate a long random string)
+      - key: SECRET_KEY 
+        value: "generate_a_long_random_key_here"
