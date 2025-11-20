@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 from flask_mail import Mail, Message
 import threading
+import json
 
 # Load local environment variables (must be first)
 load_dotenv()
