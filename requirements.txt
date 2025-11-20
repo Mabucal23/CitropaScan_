@@ -1,15 +1,15 @@
-# Python packages required for the CitropaScan Flask Application
+# Python packages required for the CitroPaScan Flask Application
 
 # Web Server & Framework
 Flask==3.0.3
 gunicorn==22.0.0
 
 # Image Processing & Machine Learning
-# Allowing the latest minor version of opencv-python
-opencv-python>=4.10.0.84 
-# Using a known, recent, and available version of TensorFlow
-tensorflow==2.20.0 
-numpy>=1.26.4
+opencv-python>=4.10.0.84
+opencv-contrib-python>=4.10.0.84
+Pillow>=10.0.0
+tensorflow==2.20.0
+numpy==1.26.4
 python-dotenv==1.0.1
 
 # Firebase/Google Cloud
