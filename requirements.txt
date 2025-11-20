@@ -16,3 +16,5 @@ werkzeug==3.0.3
 
 # Utilities
 Flask-Mail==0.9.1
+
+python-dotenv==1.0.1

@@ -7,282 +7,240 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 import requests
 import os
+import json
+from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import time
 from datetime import datetime
 from flask_mail import Mail, Message
 import threading
 
-# --- NEW: Set the environment variable for OpenCV's timeout ---
-# This tells FFMPEG to time out after 3 seconds (3,000,000 microseconds)
-# This MUST be set before any cv2.VideoCapture call
+# Load local environment variables (must be first)
+load_dotenv()
+
+# OpenCV capture option (example)
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "stimeout;3000000"
-# ---------------------------------------------------------------
 
-
-# PI_SERVO_URL = "http://10.32.181.201:5000/move_servo"
-PI_SERVO_URL = "http://192.168.254.109:5000/move_servo"
-
+# Raspberry Pi servo base IP (change to your Pi IP)
+PI_IP_ADDRESS = os.environ.get("PI_IP_ADDRESS", "192.168.254.109")
+PI_SERVO_URL = f"http://{PI_IP_ADDRESS}:5000/move_servo"
 
 def send_servo_command(direction):
-    """Sends a move command to the Raspberry Pi."""
+    """Send a move command to the Raspberry Pi (with timeout)."""
     try:
-        # --- MODIFICATION HERE: Timeout increased to 2.0 seconds ---
         requests.post(PI_SERVO_URL, json={"direction": direction}, timeout=2.0)
-        # --- END MODIFICATION ---
     except requests.exceptions.RequestException as e:
         print(f"❌ Could not send servo command: {e}")
-        
-# =Options
-PREDICTION_INTERVAL = 1.0  # (seconds) How often to run the model
-UPLOAD_INTERVAL = 20.0     # (seconds) How often to save to Firebase
 
+# Options
+PREDICTION_INTERVAL = 1.0  # seconds (not currently used directly)
+UPLOAD_INTERVAL = 20.0     # seconds
 
 # Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "citropascan_secret_key"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    print("❌ CRITICAL ERROR: FLASK_SECRET_KEY environment variable is not set!")
+    exit(1)
 
-# ===============================
-# Mail Setup
-# ===============================
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'te.st.emmail02.gmail.com' # TODO: Change this
-app.config['MAIL_PASSWORD'] = 'testemail02' # TODO: Change this
-app.config['MAIL_DEFAULT_SENDER'] = ('te.st.emmail02.gmail.com') # TODO: Change this
+# Mail setup using env vars
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() in ('true', '1', 't')
+app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False').lower() in ('true', '1', 't')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 mail = Mail(app)
 
-# ===============================
-# Firebase Setup
-# ===============================
-cred = credentials.Certificate("serviceAccountKey.json")  # service account JSON
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# Firebase setup using env var JSON
+credentials_string = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_API_KEY")
 
-FIREBASE_WEB_API_KEY = "AIzaSyAVAZemmqpkBuAmEqppKQ0URWAIzAVP3m4" # TODO: Check if this is still valid
+if credentials_string and FIREBASE_WEB_API_KEY:
+    try:
+        credentials_info = json.loads(credentials_string)
+        cred = credentials.Certificate(credentials_info)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        print("✅ Firebase initialized securely from environment variables.")
+    except Exception as e:
+        print(f"❌ ERROR: Failed to parse or initialize Firebase credentials: {e}")
+        exit(1)
+else:
+    print("❌ CRITICAL ERROR: Missing GOOGLE_CREDENTIALS_JSON or FIREBASE_API_KEY environment variables.")
+    exit(1)
 
-# ===============================
-# Load Model
-# ===============================
+# Load ML model
 MODEL_PATH = "accDiseases.keras"
-model = tf.keras.models.load_model(MODEL_PATH)
-print("✅ Model loaded successfully!")
-print("Expected input shape:", model.input_shape)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+    print("✅ Model loaded successfully!")
+    print("Expected input shape:", model.input_shape)
+except Exception as e:
+    print(f"❌ CRITICAL ERROR: Failed to load Keras model from {MODEL_PATH}: {e}")
+    model = None
 
 CLASS_NAMES = [
-    "Black Spot", "Canker", "Fresh", "Greeening", "Scab"
+    "Black Spot", "Canker", "Fresh", "Greening", "Scab"
 ]
 
-# ===============================
-# Camera Setup (FIXED)
-# ===============================
-
-def initialize_camera_with_failover(sources):
+# Camera initialization with failover
+def initialize_camera_with_failover(sources, wait_seconds=1.0):
     """
-    Tries to open video sources from a list, one by one, until one succeeds.
-    This version also tries to read one frame to confirm the stream is active.
-    
-    Args:
-        sources (list): A list of video sources to try in order.
-
-    Returns:
-        cv2.VideoCapture: The first successfully opened AND read VideoCapture object.
-        None: If all sources in the list fail.
+    Try each source until one opens AND returns a frame.
+    Returns cv2.VideoCapture or None.
     """
-    camera = None
-    
     for source in sources:
-        print(f"Attempting to connect to camera: {source}")
-        
-        # This call will now honor the 3-second timeout
-        camera = cv2.VideoCapture(source)
-        
-        # Give the connection a moment to establish
-        time.sleep(1) 
-        
-        if camera.isOpened():
-            # Now, test if we can actually READ from the camera
-            ret, _ = camera.read() 
+        try:
+            print(f"Attempting to connect to camera: {source}")
+            cam = cv2.VideoCapture(source)
+            # give it a moment
+            time.sleep(wait_seconds)
+            if not cam.isOpened():
+                print(f"❌ Failed to open camera connection: {source}")
+                try:
+                    cam.release()
+                except Exception:
+                    pass
+                continue
+            # test a read
+            ret, _ = cam.read()
             if ret:
-                # SUCCESS! We have a camera AND a frame.
                 print(f"✅ Success! Connected and receiving frames from: {source}")
-                break # Exit the 'for' loop
+                return cam
             else:
-                # Connection opened, but read failed
                 print(f"❌ Connected but failed to read frame from: {source}")
-                camera.release()
-                camera = None
-        else:
-            # Connection failed to open
-            print(f"❌ Failed to open camera connection: {source}")
-            if camera:
-                camera.release()
-            camera = None 
-    
-    if camera is None:
-        print("❌ CRITICAL: Could not connect to ANY camera source.")
-        
-    return camera
-
+                try:
+                    cam.release()
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"❌ Error when trying source {source}: {e}")
+    print("❌ CRITICAL: Could not connect to ANY camera source.")
+    return None
 
 video_sources = [
-    "http://192.168.254.109:5000/video_feed",
-    "http://10.32.181.201:5000/video_feed", 
-     # (This line is what you're using)
-    0 
+    f"http://{PI_IP_ADDRESS}:5000/video_feed",
+    "http://10.32.181.201:5000/video_feed",
+    0  # local camera fallback
 ]
 
-# In your app.py file:
-
-# The IP of your Raspberry Pi
-PI_IP_ADDRESS = "192.168.254.109" 
-
-# Correct URL for sending commands
-PI_SERVO_URL = f"http://{PI_IP_ADDRESS}:5000/move_servo"
-# Try to initialize the camera
 camera = initialize_camera_with_failover(video_sources)
 
-# --- THE BLOCKING 'while True: ...' LOOP HAS BEEN DELETED ---
-# The Flask app will now continue past this point and start the server.
-# The 'camera' object (or None) will be used by 'generate_frames()'.
-
-# ==================================
-# Global Vars for Threading
-# ==================================
-g_last_frame = None            # The most recent frame from the camera
-g_last_prediction = {          # The most recent prediction from the model
-    "class": "Loading...", 
-    "confidence": 0.0
-}
-g_frame_lock = threading.Lock()      # Lock for g_last_frame
-g_prediction_lock = threading.Lock() # Lock for g_last_prediction
-g_current_user_id = None       # To tell the background thread who is logged in
+# Global vars for threading
+g_last_frame = None
+g_last_prediction = {"class": "Loading...", "confidence": 0.0}
+g_frame_lock = threading.Lock()
+g_prediction_lock = threading.Lock()
+g_current_user_id = None
 g_last_upload_time = 0
-# ==================================
-
 
 def preprocess_frame(frame):
-    """Resize and normalize frame for prediction"""
-    target_size = (256, 256)  # Match model input
+    """Resize and normalize frame for prediction."""
+    target_size = (256, 256)
     img = cv2.resize(frame, target_size)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # convert BGR → RGB
-    img = img / 255.0
-    img = np.expand_dims(img, axis=0).astype(np.float32)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = img.astype(np.float32) / 255.0
+    img = np.expand_dims(img, axis=0)
     return img
 
-# ==================================
-# NEW: Motion Detection Constants
-# ==================================
-MIN_MOTION_AREA = 5000  # Adjust this: Smaller = more sensitive, Larger = ignores small objects
-MOTION_THRESHOLD = 25   # Pixel intensity difference required to count as motion
+# Motion detection constants
+MIN_MOTION_AREA = 5000
+MOTION_THRESHOLD = 25
 
-# ==================================
-# UPDATED: Background Prediction Thread
-# ==================================
 def background_prediction_thread():
     """
-    Runs in a separate thread. 
-    1. Detects Motion.
-    2. If Motion -> Predicts Disease -> Moves Servo -> Saves to Firebase.
+    Background thread:
+    - detects motion
+    - runs prediction when motion found
+    - moves servo and optionally saves to Firestore (rate-limited)
     """
     global g_last_frame, g_last_prediction, g_current_user_id, g_last_upload_time
 
     print("🚀 Background prediction thread started with Motion Detection.")
-    
-    # Variable to store the previous frame for comparison
     prev_gray = None
 
     while True:
         frame_to_process = None
-        
         with g_frame_lock:
             if g_last_frame is not None:
                 frame_to_process = g_last_frame.copy()
-        
+
         if frame_to_process is None:
             time.sleep(0.5)
             continue
-            
+
         try:
-            # --- 1. Motion Detection Logic ---
-            
-            # Convert to grayscale and blur to remove noise
             gray = cv2.cvtColor(frame_to_process, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
-            # If this is the very first frame, initialize prev_gray and skip
             if prev_gray is None:
                 prev_gray = gray
+                # wait a short moment to get a second frame for comparison
+                time.sleep(0.2)
                 continue
 
-            # Compute the absolute difference between current frame and previous frame
             frame_delta = cv2.absdiff(prev_gray, gray)
-            
-            # Threshold the delta image (convert to black and white)
             thresh = cv2.threshold(frame_delta, MOTION_THRESHOLD, 255, cv2.THRESH_BINARY)[1]
-            
-            # Dilate the thresholded image to fill in holes
             thresh = cv2.dilate(thresh, None, iterations=2)
-            
-            # Find contours (shapes) of the moving areas
-            contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            contours_info = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # cv2.findContours returns either (contours, hierarchy) or (image, contours, hierarchy)
+            if len(contours_info) == 3:
+                _, contours, _ = contours_info
+            else:
+                contours, _ = contours_info
 
             motion_detected = False
-            
-            # Check if any contour is large enough to be a fruit
             for contour in contours:
                 if cv2.contourArea(contour) > MIN_MOTION_AREA:
                     motion_detected = True
-                    break # We found at least one big moving object
-            
-            # Update prev_gray for the next loop iteration
+                    break
+
+            # update baseline
             prev_gray = gray
 
-            # --- 2. Decision Logic ---
-            
             if not motion_detected:
-                # If no motion, just print a status (optional) and skip prediction
-                # print("No motion detected... sleeping")
-                time.sleep(0.2) # Short sleep to check again soon
-                continue 
-            
-            # IF WE REACH HERE, MOTION WAS DETECTED!
+                time.sleep(0.2)
+                continue
+
             print("📸 Motion Detected! Running Prediction...")
 
-            # --- 3. Perform Heavy Prediction ---
             img = preprocess_frame(frame_to_process)
+
+            if model is None:
+                print("❌ Model not loaded, skipping prediction.")
+                time.sleep(1.0)
+                continue
+
             preds = model.predict(img, verbose=0)
             predicted_class = CLASS_NAMES[np.argmax(preds)]
-            confidence = float(np.max(preds) * 100)
-            
+            confidence = float(np.max(preds) * 100.0)
+
             with g_prediction_lock:
-                g_last_prediction = {
-                    "class": predicted_class,
-                    "confidence": confidence
-                }
-            
-            # --- 4. Send Servo Command (with delay logic) ---
-            if predicted_class == "Fresh":
+                g_last_prediction = {"class": predicted_class, "confidence": confidence}
+
+            # Servo actions
+            if predicted_class.lower() == "fresh":
                 print("Prediction: Fresh. Moving servo RIGHT.")
                 send_servo_command('right')
-                time.sleep(1.0) 
+                time.sleep(1.0)
             else:
                 print(f"Prediction: {predicted_class}. Moving servo LEFT.")
                 send_servo_command('left')
                 print("Waiting 5 seconds for disease sort...")
-                time.sleep(5.0) 
-            
-            # --- 5. Return to Center ---
+                time.sleep(5.0)
+
+            # Return center
             print("Returning servo to CENTER.")
             send_servo_command('center')
-            
-            # --- 6. Handle Firebase Saving ---
+
+            # Firestore saving (rate-limited)
             current_time = time.time()
             user_id = g_current_user_id
-            
+
             if user_id and (current_time - g_last_upload_time >= UPLOAD_INTERVAL):
                 timestamp_obj = datetime.now()
                 data = {
@@ -291,7 +249,6 @@ def background_prediction_thread():
                     "timestamp": timestamp_obj,
                     "user_id": user_id
                 }
-                
                 try:
                     db.collection("predictions").add(data)
                     db.collection("users").document(user_id).collection("scans").add({
@@ -304,111 +261,75 @@ def background_prediction_thread():
                 except Exception as e:
                     print(f"❌ [BackgroundThread] Firebase save error: {e}")
 
-            # ====================================================
-            # CRITICAL FIX: RESET MOTION BASELINE
-            # ====================================================
+            # Reset motion baseline after servo movement to avoid false triggers
             print("🔄 Resetting motion detector to ignore servo movement...")
-            
-            # 1. Wait a tiny bit for the servo to actually finish returning to center
-            time.sleep(1.0) 
-
-            # 2. Grab the absolute latest frame to be the new "background"
+            time.sleep(1.0)
             with g_frame_lock:
                 if g_last_frame is not None:
-                    # Create a new "previous" frame based on the scene RIGHT NOW
-                    # This prevents the "Old Scene vs New Scene" ghost motion trigger
                     reset_gray = cv2.cvtColor(g_last_frame, cv2.COLOR_BGR2GRAY)
                     reset_gray = cv2.GaussianBlur(reset_gray, (21, 21), 0)
                     prev_gray = reset_gray
-            
             print("✅ Motion detector reset. Ready for next fruit.")
-            # ====================================================
 
         except Exception as e:
             print(f"❌ [BackgroundThread] Prediction error: {e}")
-            
-        # --- 7. Rate Limit ---
-        # We can use a shorter sleep here because the motion detector acts as the main filter
+
+        # Rate limit loop iterations
         time.sleep(0.5)
-        
+
 def generate_frames(user_id):
     """
-    Generator function that yields JPEG frames *fast*.
-    It only draws the latest prediction from the background thread.
+    Generator yields MJPEG frames. Updates global frame buffer used by predictor.
     """
     global g_last_frame, g_last_prediction, g_current_user_id, g_last_upload_time
 
-    # Tell the background thread who is logged in
     g_current_user_id = user_id
-    # Reset upload timer for new user session
-    g_last_upload_time = time.time() 
-    
-    # Check if camera initialization failed globally
+    g_last_upload_time = time.time()
+
     if camera is None or not camera.isOpened():
         print("❌ Camera is not available. Stopping frame generation.")
-        # Optionally, you could yield a "Camera Offline" image
         return
 
     while True:
         success, frame = camera.read()
         if not success:
             print("❌ Camera read failed. Stream may have ended.")
-            # We will stop the generator here. 
-            # The client will need to refresh to try reconnecting.
             break
-        
-        # --- Update the global frame (for the prediction thread) ---
+
         with g_frame_lock:
             g_last_frame = frame.copy()
-        
-        # --- Get the latest prediction (don't wait) ---
+
         with g_prediction_lock:
             prediction = g_last_prediction.copy()
 
-        # --- Draw on frame (fast) ---
+        # Draw label (fast)
         try:
-            cv2.putText(frame,
-                        f"{prediction['class']} ({prediction['confidence']:.2f}%)",
-                        (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0),
-                        2)
+            label = f"{prediction['class']} ({prediction['confidence']:.2f}%)"
+            cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         except Exception as e:
             print(f"❌ DrawText error: {e}")
 
-        # --- Encode and yield (fast) ---
         ret, buffer = cv2.imencode('.jpg', frame)
         if not ret:
             print("❌ Failed to encode frame")
             continue
-        
+
         frame_bytes = buffer.tobytes()
-        
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        
-        # Optional: slightly yield to prevent 100% CPU
-        time.sleep(1/60) # Aim for 60 FPS stream
-
+        time.sleep(1/60)
 
 @app.route('/video_feed')
 def video_feed():
     if "user" not in session:
         return redirect(url_for("login"))
-
     user_id = session["user"]["uid"]
-    return Response(generate_frames(user_id),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(user_id), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
-# ===============================
-# Routes (Unchanged)
-# ===============================
+# Routes (mostly unchanged)
 @app.route("/")
 def landing():
     return render_template("landing.html")
-
 
 @app.route("/dashboard")
 def index():
@@ -416,17 +337,17 @@ def index():
         return redirect(url_for("login"))
 
     user_id = session["user"]["uid"]
-
-    # This part is slow if there are many scans. 
-    # Consider using the /api/counters logic instead.
     scans_ref = db.collection("users").document(user_id).collection("scans")
-    docs = scans_ref.stream()
-    predictions = [doc.to_dict() for doc in docs]
+    try:
+        docs = scans_ref.stream()
+        predictions = [doc.to_dict() for doc in docs]
+    except Exception as e:
+        print(f"❌ Error reading scans: {e}")
+        predictions = []
 
     total_scans = len(predictions)
     fresh_count = sum(1 for p in predictions if p.get("predicted_class", "").lower() == "fresh")
     diseased_count = total_scans - fresh_count
-
     good_percentage = (fresh_count / total_scans * 100) if total_scans > 0 else 0
     diseased_percentage = (diseased_count / total_scans * 100) if total_scans > 0 else 0
 
@@ -439,7 +360,6 @@ def index():
         diseased_percentage=round(diseased_percentage, 2),
     )
 
-
 @app.route("/api/counters")
 def get_counters():
     if "user" not in session:
@@ -449,20 +369,17 @@ def get_counters():
     scans_ref = db.collection("users").document(user_id).collection("scans")
 
     try:
-        # Use efficient count() aggregation
-        
-        # Get total count
-        total_query = scans_ref.count()
-        total_result = total_query.get()
-        total_scans = total_result[0][0].value if total_result else 0
+        # Some firebase-admin versions don't support count() this way, so stream and count.
+        docs = scans_ref.stream()
+        total_scans = 0
+        fresh_count = 0
+        for doc in docs:
+            total_scans += 1
+            data = doc.to_dict()
+            if data.get("predicted_class", "").lower() == "fresh":
+                fresh_count += 1
 
-        # Get healthy ("Fresh") count
-        healthy_query = scans_ref.where("predicted_class", "==", "Fresh").count() 
-        healthy_result = healthy_query.get()
-        fresh_count = healthy_result[0][0].value if healthy_result else 0
-        
         diseased_count = total_scans - fresh_count
-        
         good_percentage = round((fresh_count / total_scans * 100), 2) if total_scans > 0 else 0
         diseased_percentage = round((diseased_count / total_scans * 100), 2) if total_scans > 0 else 0
 
@@ -473,7 +390,6 @@ def get_counters():
             "good_percentage": good_percentage,
             "diseased_percentage": diseased_percentage
         })
-
     except Exception as e:
         print(f"❌ Error getting counters: {e}")
         return jsonify({"error": f"Could not retrieve counters: {str(e)}"}), 500
@@ -482,16 +398,13 @@ def get_counters():
 def services():
     return render_template("services.html")
 
-
 @app.route("/about")
 def about():
     return render_template("about.html")
 
-
 @app.route("/learnmore")
 def learnmore():
     return render_template("learnmore.html")
-
 
 @app.route("/report")
 def report():
@@ -499,19 +412,21 @@ def report():
         return redirect(url_for("login"))
 
     user_id = session["user"]["uid"]
-
     scans_ref = (
         db.collection("users").document(user_id)
         .collection("scans")
         .order_by("timestamp", direction=firestore.Query.DESCENDING)
         .limit(100)
     )
-    docs = scans_ref.stream()
+    try:
+        docs = scans_ref.stream()
+    except Exception as e:
+        print(f"❌ Error fetching report docs: {e}")
+        docs = []
 
     predictions = []
     disease_counts = {}
     monthly_counts = {}
-
     total_confidence = 0
     total_scans = 0
     fresh_count = 0
@@ -521,21 +436,24 @@ def report():
         data = doc.to_dict()
         disease = data.get("predicted_class", "Unknown")
         confidence = float(data.get("confidence", 0))
-        
         fs_timestamp = data.get("timestamp")
-        timestamp = datetime.now() # Fallback
+        timestamp = datetime.now()
         if fs_timestamp:
             try:
-                # Convert Firestore Timestamp to Python datetime
-                timestamp = fs_timestamp.to_datetime() 
-            except Exception as e:
-                print(f"Warning: Could not parse timestamp {fs_timestamp}: {e}")
+                timestamp = fs_timestamp.to_datetime()
+            except Exception:
+                try:
+                    # If you saved plain datetime objects, they might already be python datetimes
+                    if isinstance(fs_timestamp, datetime):
+                        timestamp = fs_timestamp
+                except Exception:
+                    pass
 
         predictions.append({
             "id": idx,
             "disease": disease,
             "confidence": confidence,
-            "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"), # Format for display
+            "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "status": "fresh" if disease.lower() == "fresh" else "disease"
         })
 
@@ -561,14 +479,11 @@ def report():
                            disease_counts=disease_counts,
                            monthly_counts=monthly_counts)
 
-# ===============================
-# Profile & Upload (Unchanged)
-# ===============================
-UPLOAD_FOLDER_RELATIVE = "uploads"  # Path INSIDE static
+# Profile & Upload
+UPLOAD_FOLDER_RELATIVE = "uploads"
 UPLOAD_FOLDER_FULL = os.path.join("static", UPLOAD_FOLDER_RELATIVE)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER_FULL
 os.makedirs(UPLOAD_FOLDER_FULL, exist_ok=True)
-
 
 @app.route("/upload_profile_pic", methods=["POST"])
 def upload_profile_pic():
@@ -580,18 +495,17 @@ def upload_profile_pic():
         filename = secure_filename(file.filename)
         user_id = session["user"]["uid"]
         unique_filename = f"{user_id}_{filename}"
-
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
         file.save(filepath)
-
-        # Path to store in DB (relative to 'static')
-        web_filepath_relative = os.path.join(UPLOAD_FOLDER_RELATIVE, unique_filename).replace("\\", "/") 
-        
-        db.collection("users").document(user_id).update({
-            "profile_pic": web_filepath_relative  # Save the relative path
-        })
-        session["user"]["profile_pic"] = web_filepath_relative # Also save to session
-        session.modified = True
+        web_filepath_relative = os.path.join(UPLOAD_FOLDER_RELATIVE, unique_filename).replace("\\", "/")
+        try:
+            db.collection("users").document(user_id).update({
+                "profile_pic": web_filepath_relative
+            })
+            session["user"]["profile_pic"] = web_filepath_relative
+            session.modified = True
+        except Exception as e:
+            print(f"❌ Error updating profile_pic in DB: {e}")
 
     return redirect(url_for("profile"))
 
@@ -602,60 +516,58 @@ def profile():
 
     user_id = session["user"]["uid"]
     user_ref = db.collection("users").document(user_id)
-    user_doc = user_ref.get()
+    try:
+        user_doc = user_ref.get()
+    except Exception as e:
+        print(f"❌ Error retrieving user doc: {e}")
+        user_doc = None
 
-    if user_doc.exists:
+    if user_doc and user_doc.exists:
         user_data = user_doc.to_dict()
-        user_data['phone'] = user_data.get('phone') 
+        user_data['phone'] = user_data.get('phone')
         user_data['address'] = user_data.get('address')
-        
-        # --- EDITED: Robust last_login handling ---
-        # Get last_login from the database (it's a Firestore Timestamp)
         db_last_login = user_data.get("last_login")
         if db_last_login:
             try:
-                # Convert it to a Python datetime object
                 user_data["last_login"] = db_last_login.to_datetime()
-            except Exception as e:
-                print(f"Warning: Could not parse DB last_login timestamp: {e}")
-                # Fallback to the login time from this session
+            except Exception:
                 user_data["last_login"] = session["user"].get("last_login")
         else:
-            # Fallback if no value is in the database yet
             user_data["last_login"] = session["user"].get("last_login")
-        # --- END EDIT ---
-            
     else:
         user_data = {"fullname": "Unknown", "email": "Not Found", "phone": None, "address": None}
 
-    # Sync DB data to session
     session["user"]["profile_pic"] = user_data.get("profile_pic")
     session["user"]["phone"] = user_data.get("phone")
     session["user"]["address"] = user_data.get("address")
     session.modified = True
 
     scans_ref = user_ref.collection("scans")
-    scans = scans_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).stream()
-    
+    try:
+        scans = scans_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(5).stream()
+    except Exception as e:
+        print(f"❌ Error fetching scans for profile: {e}")
+        scans = []
+
     scan_history = []
     for scan in scans:
         data = scan.to_dict()
         fs_timestamp = data.get("timestamp")
-        py_datetime = None 
+        py_datetime = None
         if fs_timestamp:
             try:
-                py_datetime = fs_timestamp.to_datetime() 
-            except Exception as e:
-                print(f"Warning: Could not parse scan timestamp {fs_timestamp}: {e}")
-                
+                py_datetime = fs_timestamp.to_datetime()
+            except Exception:
+                try:
+                    if isinstance(fs_timestamp, datetime):
+                        py_datetime = fs_timestamp
+                except Exception:
+                    pass
         scan_history.append({
             "disease": data.get("predicted_class"),
             "confidence": data.get("confidence"),
-            "timestamp": py_datetime, 
+            "timestamp": py_datetime,
         })
-    
-    # This line is no longer needed, as we handle it above
-    # user_data["last_login"] = session["user"].get("last_login") 
 
     return render_template("profile.html", user=user_data, scan_history=scan_history)
 
@@ -671,13 +583,10 @@ def update_profile():
     address = request.form.get("address")
 
     try:
-        # --- CRITICAL EDIT: Update Firebase Auth email ---
-        # This keeps the login email in sync with the database email
         current_email = session["user"]["email"]
-        if email != current_email:
+        if email and email != current_email:
             auth.update_user(user_id, email=email)
             flash("Login email updated. Please check your inbox to verify.", "info")
-        # --- END CRITICAL EDIT ---
 
         update_data = {
             "fullname": fullname,
@@ -687,27 +596,19 @@ def update_profile():
         }
         db.collection("users").document(user_id).update(update_data)
 
-        # Update session data as well
         session["user"]["email"] = email
         session["user"]["fullname"] = fullname
         session["user"]["phone"] = phone
         session["user"]["address"] = address
-        session.modified = True # Mark session as modified
-        
-        # --- NEW: Add success message ---
-        flash("Profile updated successfully!", "success")
-        # --- END NEW ---
+        session.modified = True
 
+        flash("Profile updated successfully!", "success")
     except Exception as e:
-        # --- NEW: Add error message ---
         flash(f"Update failed: {str(e)}", "error")
-        # --- END NEW ---
-        
+
     return redirect(url_for("profile"))
 
-# ===============================
-# Auth Routes (Unchanged)
-# ===============================
+# Auth routes
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     error = None
@@ -726,42 +627,32 @@ def signup():
             return render_template("signup.html", error=error)
 
         try:
-            user = auth.create_user(
-                email=email,
-                password=password,
-                display_name=fullname
-            )
-
-            created_at_obj = datetime.now() 
-            
+            user = auth.create_user(email=email, password=password, display_name=fullname)
+            created_at_obj = datetime.now()
             db.collection("users").document(user.uid).set({
                 "fullname": fullname,
                 "email": email,
-                "created_at": created_at_obj, 
+                "created_at": created_at_obj,
                 "is_logged_in": False,
-                "phone": "",    
-                "address": ""   
+                "phone": "",
+                "address": ""
             })
-
             session["user"] = {
                 "uid": user.uid,
                 "email": email,
                 "fullname": fullname,
-                "last_login": created_at_obj, 
+                "last_login": created_at_obj,
                 "phone": "",
                 "address": ""
             }
-
             print(f"✅ New user saved: {session['user']}")
             return redirect(url_for("index"))
-
         except Exception as e:
             error = f"Signup failed: {str(e)}"
             print("❌ Signup error:", e)
             return render_template("signup.html", error=error)
 
     return render_template("signup.html", error=error)
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -772,20 +663,15 @@ def login():
 
         try:
             url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
-            payload = {
-                "email": email,
-                "password": password,
-                "returnSecureToken": True
-            }
-
+            payload = {"email": email, "password": password, "returnSecureToken": True}
             r = requests.post(url, json=payload)
             data = r.json()
 
             if "error" in data:
                 error_message = data["error"]["message"]
-                if error_message == "INVALID_PASSWORD" or error_message == "Wrong Password":
+                if error_message in ("INVALID_PASSWORD", "Wrong Password"):
                     error = "❌ Wrong password. Please try again."
-                elif error_message == "EMAIL_NOT_FOUND" or error_message == "Email does not exist":
+                elif error_message in ("EMAIL_NOT_FOUND", "Email does not exist"):
                     error = "❌ Email not found. Please sign up first."
                 else:
                     error = f"Login failed: {error_message}"
@@ -798,15 +684,11 @@ def login():
             user_ref = db.collection("users").document(user_id)
             user_doc = user_ref.get()
 
-            # Note: This "is_logged_in" check is not 100% reliable.
-            # A user could close their browser without logging out.
-            # Don't rely on it for critical security.
             if user_doc.exists and user_doc.to_dict().get("is_logged_in", False):
-                # pass # Allow login even if logged in elsewhere
                 print("Warning: User is already marked as logged in.")
 
             last_login_obj = datetime.now()
-            user_data = user_doc.to_dict() or {} # Handle new user login
+            user_data = user_doc.to_dict() or {}
 
             session["user"] = {
                 "uid": user_id,
@@ -815,11 +697,9 @@ def login():
                 "last_login": last_login_obj,
                 "fullname": user_data.get("fullname", "User"),
                 "profile_pic": user_data.get("profile_pic")
-                # Phone/address will be added on profile page load
             }
 
             user_ref.set({"is_logged_in": True, "last_login": last_login_obj}, merge=True)
-
             return redirect(url_for("index"))
 
         except Exception as e:
@@ -837,17 +717,12 @@ def forgot_password():
             return redirect(url_for('forgot_password'))
 
         try:
-            # Check if user exists
             user = auth.get_user_by_email(email)
-            
-            # Generate the password reset link
             link = auth.generate_password_reset_link(email)
-            
-            # --- Send the email ---
             try:
                 msg = Message(
                     subject="Reset Your CitroPaScan Password",
-                    recipients=[email], # Send to the user's email
+                    recipients=[email],
                     html=f"""
                         <p>Hello,</p>
                         <p>You requested a password reset for your CitroPaScan account.</p>
@@ -864,19 +739,12 @@ def forgot_password():
             except Exception as mail_error:
                 print(f"❌ Mail sending error: {mail_error}")
                 flash("Could not send the reset email. Please try again later or contact support.", "error")
-            
-            return redirect(url_for('login')) # Redirect after attempting send
-
-        except auth.UserNotFoundError:
-            # Don't reveal if the email exists for security
+            return redirect(url_for('login'))
+        except Exception:
+            # Do not reveal whether an email exists
             flash("If an account exists for that email, a reset link has been sent.", "info")
             return redirect(url_for('login'))
-        except Exception as e:
-            print(f"❌ Password reset error: {e}")
-            flash(f"An error occurred: {e}", "error")
-            return redirect(url_for('forgot_password'))
 
-    # Handle GET request
     return render_template("forget_password.html")
 
 @app.route("/logout")
@@ -884,28 +752,18 @@ def logout():
     global g_current_user_id
     if "user" in session:
         user_id = session["user"]["uid"]
-
-        db.collection("users").document(user_id).update({
-            "is_logged_in": False
-        })
-
+        try:
+            db.collection("users").document(user_id).update({"is_logged_in": False})
+        except Exception as e:
+            print(f"❌ Error updating is_logged_in on logout: {e}")
         session.pop("user", None)
-        g_current_user_id = None # Stop logging for background thread
-        
+        g_current_user_id = None
     return redirect(url_for("login"))
 
-
-# ===============================
-# Run Flask App
-# ===============================
 if __name__ == "__main__":
-    # Start the background prediction thread
+    # Start background thread (daemon)
     pred_thread = threading.Thread(target=background_prediction_thread, daemon=True)
     pred_thread.start()
-    
-    # Start the Flask app
-    
-    # IMPORTANT: use_reloader=False is critical when running threads
-    # host='0.0.0.0' makes it accessible on your network
+
     print("Starting Flask app at http://0.0.0.0:5000")
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5000, threaded=True)
