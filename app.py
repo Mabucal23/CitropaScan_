@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 from flask import Flask, render_template, redirect, url_for, session, Response, jsonify, request, flash
 import cv2
 import tensorflow as tf
@@ -7,7 +6,6 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 import requests
 import os
-import json
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import time
@@ -17,6 +15,32 @@ import threading
 
 # Load local environment variables (must be first)
 load_dotenv()
+
+REQUIRED_ENV_VARS = [
+    "GOOGLE_CREDENTIALS_JSON",
+    "FIREBASE_API_KEY",
+    "FLASK_SECRET_KEY",
+    "MAIL_SERVER",
+    "MAIL_PORT",
+    "MAIL_USE_TLS",
+    "MAIL_USE_SSL",
+    "MAIL_USERNAME",
+    "MAIL_PASSWORD",
+    "MAIL_DEFAULT_SENDER",
+    "PI_IP_ADDRESS"
+]
+
+missing_vars = [var for var in REQUIRED_ENV_VARS if not os.environ.get(var)]
+if missing_vars:
+    print(f"❌ CRITICAL ERROR: Missing environment variables: {missing_vars}")
+    exit(1)
+
+# =========================
+# Flask app initialization
+# =========================
+app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+
 
 # OpenCV capture option (example)
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "stimeout;3000000"
@@ -36,12 +60,7 @@ def send_servo_command(direction):
 PREDICTION_INTERVAL = 1.0  # seconds (not currently used directly)
 UPLOAD_INTERVAL = 20.0     # seconds
 
-# Initialize Flask app
-app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY")
-if not app.secret_key:
-    print("❌ CRITICAL ERROR: FLASK_SECRET_KEY environment variable is not set!")
-    exit(1)
+
 
 # Mail setup using env vars
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
@@ -55,22 +74,20 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 mail = Mail(app)
 
 # Firebase setup using env var JSON
-SERVICE_ACCOUNT_PATH = os.path.join(os.getcwd(), "serviceAccountKey.json")
-
+SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_CREDENTIALS_JSON")
 if not os.path.exists(SERVICE_ACCOUNT_PATH):
-    print("❌ CRITICAL ERROR: serviceAccountKey.json not found in project directory!")
+    print(f"❌ CRITICAL ERROR: serviceAccountKey.json not found at {SERVICE_ACCOUNT_PATH}")
     exit(1)
 
 try:
     cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
     firebase_admin.initialize_app(cred)
     db = firestore.client()
-    print("✅ Firebase initialized using serviceAccountKey.json")
+    print("✅ Firebase initialized")
 except Exception as e:
     print(f"❌ ERROR initializing Firebase: {e}")
     exit(1)
 
-# API key for client-side login
 FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_API_KEY")
 if not FIREBASE_WEB_API_KEY:
     print("❌ CRITICAL ERROR: Missing FIREBASE_API_KEY in .env")
