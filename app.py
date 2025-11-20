@@ -59,8 +59,8 @@ def send_servo_command(direction):
         print(f"❌ Could not send servo command: {e}")
 
 # Options
-PREDICTION_INTERVAL = 1.0  # seconds (not currently used directly)
-UPLOAD_INTERVAL = 20.0     # seconds
+PREDICTION_INTERVAL = 1.0   # seconds (not currently used directly)
+UPLOAD_INTERVAL = 20.0      # seconds
 
 
 
@@ -74,6 +74,8 @@ app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 mail = Mail(app)
+
+FIREBASE_WEB_API_KEY = os.environ.get("FIREBASE_WEB_API_KEY")
 
 service_account_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
 if not service_account_json:
@@ -93,14 +95,30 @@ except Exception as e:
     exit(1)
 
 # Load ML model
-MODEL_PATH = "accDiseases_quantized.tflite"
+MODEL_PATH = "accDiseases_quantized.tflite" 
+
+# Initialize interpreter/model objects globally
+interpreter = None
+input_details = None
+output_details = None
+
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("✅ Model loaded successfully!")
-    print("Expected input shape:", model.input_shape)
+    # Load the TFLite model and allocate tensors.
+    interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+    interpreter.allocate_tensors()
+
+    # Get input and output details
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+
+    print("✅ TFLite Interpreter loaded successfully!")
+    print("Expected input shape:", input_details[0]['shape'])
+
 except Exception as e:
-    print(f"❌ CRITICAL ERROR: Failed to load Keras model from {MODEL_PATH}: {e}")
-    model = None
+    print(f"❌ CRITICAL ERROR: Failed to load TFLite model from {MODEL_PATH}: {e}")
+    # interpreter remains None
+
+# model = None # The use of a 'model' variable here caused the initial confusion/error.
 
 CLASS_NAMES = [
     "Black Spot", "Canker", "Fresh", "Greening", "Scab"
@@ -144,7 +162,7 @@ def initialize_camera_with_failover(sources, wait_seconds=1.0):
 video_sources = [
     f"http://{PI_IP_ADDRESS}:5000/video_feed",
     "http://10.32.181.201:5000/video_feed",
-    0  # local camera fallback
+    0   # local camera fallback
 ]
 
 camera = initialize_camera_with_failover(video_sources)
@@ -158,12 +176,13 @@ g_current_user_id = None
 g_last_upload_time = 0
 
 def preprocess_frame(frame):
-    """Resize and normalize frame for prediction."""
+    """Resize and normalize frame for TFLite prediction."""
+    # Ensure the frame is in the format expected by the model (e.g., 256x256, 3 channels, float32, normalized, batched)
     target_size = (256, 256)
     img = cv2.resize(frame, target_size)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = img.astype(np.float32) / 255.0
-    img = np.expand_dims(img, axis=0)
+    img = np.expand_dims(img, axis=0) # Add batch dimension (1, 256, 256, 3)
     return img
 
 # Motion detection constants
@@ -174,10 +193,10 @@ def background_prediction_thread():
     """
     Background thread:
     - detects motion
-    - runs prediction when motion found
+    - runs TFLite prediction when motion found
     - moves servo and optionally saves to Firestore (rate-limited)
     """
-    global g_last_frame, g_last_prediction, g_current_user_id, g_last_upload_time
+    global g_last_frame, g_last_prediction, g_current_user_id, g_last_upload_time, interpreter, input_details, output_details
 
     print("🚀 Background prediction thread started with Motion Detection.")
     prev_gray = None
@@ -228,16 +247,29 @@ def background_prediction_thread():
 
             print("📸 Motion Detected! Running Prediction...")
 
-            img = preprocess_frame(frame_to_process)
-
-            if model is None:
-                print("❌ Model not loaded, skipping prediction.")
+            # --- START TFLITE PREDICTION LOGIC (FIXED) ---
+            if interpreter is None:
+                print("❌ TFLite Interpreter not loaded, skipping prediction.")
                 time.sleep(1.0)
                 continue
 
-            preds = model.predict(img, verbose=0)
+            img = preprocess_frame(frame_to_process)
+            
+            # 1. Set the tensor to the input data
+            # img shape is (1, 256, 256, 3) and data type is float32
+            interpreter.set_tensor(input_details[0]['index'], img)
+            
+            # 2. Run inference
+            interpreter.invoke()
+            
+            # 3. Get the prediction results
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+            preds = output_data[0] # The prediction is the first (and only) item in the batch
+
             predicted_class = CLASS_NAMES[np.argmax(preds)]
             confidence = float(np.max(preds) * 100.0)
+            
+            # --- END TFLITE PREDICTION LOGIC ---
 
             with g_prediction_lock:
                 g_last_prediction = {"class": predicted_class, "confidence": confidence}
@@ -292,7 +324,7 @@ def background_prediction_thread():
             print("✅ Motion detector reset. Ready for next fruit.")
 
         except Exception as e:
-            print(f"❌ [BackgroundThread] Prediction error: {e}")
+            print(f"❌ [BackgroundThread] Prediction/Motion error: {e}")
 
         # Rate limit loop iterations
         time.sleep(0.5)
@@ -325,7 +357,9 @@ def generate_frames(user_id):
         # Draw label (fast)
         try:
             label = f"{prediction['class']} ({prediction['confidence']:.2f}%)"
-            cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # Choose color based on prediction for visual feedback
+            color = (0, 255, 0) if prediction['class'].lower() == 'fresh' else (0, 0, 255)
+            cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         except Exception as e:
             print(f"❌ DrawText error: {e}")
 
@@ -389,7 +423,7 @@ def get_counters():
     scans_ref = db.collection("users").document(user_id).collection("scans")
 
     try:
-        # Some firebase-admin versions don't support count() this way, so stream and count.
+        # Stream and count for cross-version compatibility
         docs = scans_ref.stream()
         total_scans = 0
         fresh_count = 0
@@ -460,10 +494,11 @@ def report():
         timestamp = datetime.now()
         if fs_timestamp:
             try:
+                # Handle Firestore Timestamp object
                 timestamp = fs_timestamp.to_datetime()
             except Exception:
                 try:
-                    # If you saved plain datetime objects, they might already be python datetimes
+                    # Handle if it was saved as a plain Python datetime object
                     if isinstance(fs_timestamp, datetime):
                         timestamp = fs_timestamp
                 except Exception:
@@ -605,6 +640,8 @@ def update_profile():
     try:
         current_email = session["user"]["email"]
         if email and email != current_email:
+            # Note: updating email via Firebase Auth typically logs out the user or requires re-authentication, 
+            # and the user must verify the new email.
             auth.update_user(user_id, email=email)
             flash("Login email updated. Please check your inbox to verify.", "info")
 
@@ -682,6 +719,7 @@ def login():
         password = request.form["password"]
 
         try:
+            # Use Firebase REST API for password sign-in (since Admin SDK can't do it directly)
             url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}"
             payload = {"email": email, "password": password, "returnSecureToken": True}
             r = requests.post(url, json=payload)
@@ -703,9 +741,6 @@ def login():
             user_id = data["localId"]
             user_ref = db.collection("users").document(user_id)
             user_doc = user_ref.get()
-
-            if user_doc.exists and user_doc.to_dict().get("is_logged_in", False):
-                print("Warning: User is already marked as logged in.")
 
             last_login_obj = datetime.now()
             user_data = user_doc.to_dict() or {}
@@ -737,7 +772,8 @@ def forgot_password():
             return redirect(url_for('forgot_password'))
 
         try:
-            user = auth.get_user_by_email(email)
+            # Check if user exists (to generate link)
+            auth.get_user_by_email(email) 
             link = auth.generate_password_reset_link(email)
             try:
                 msg = Message(
@@ -761,7 +797,7 @@ def forgot_password():
                 flash("Could not send the reset email. Please try again later or contact support.", "error")
             return redirect(url_for('login'))
         except Exception:
-            # Do not reveal whether an email exists
+            # Do not reveal whether an email exists for security
             flash("If an account exists for that email, a reset link has been sent.", "info")
             return redirect(url_for('login'))
 
@@ -786,4 +822,5 @@ if __name__ == "__main__":
     pred_thread.start()
 
     print("Starting Flask app at http://0.0.0.0:5000")
+    # Note: use_reloader=False is crucial when using a background thread to prevent thread duplication
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5000, threaded=True)
