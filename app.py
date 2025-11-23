@@ -1,18 +1,4 @@
 #!/usr/bin/python3
-"""
-Improved and hardened app.py for CitroPaScan
-
-Environment variables to set (Render / production):
-- FIREBASE_CREDENTIALS : JSON string of your service account (recommended)
-- SERVICE_ACCOUNT_FILE : optional path to local serviceAccountKey.json (used when FIREBASE_CREDENTIALS not set)
-- FIREBASE_WEB_API_KEY : your Firebase web API key (used for REST signin)
-- FLASK_SECRET_KEY : secret key for Flask sessions
-- MAIL_USERNAME, MAIL_PASSWORD : credentials for sending mail (Gmail or other SMTP)
-- FLASK_SERVER_URL : remote model server (PC ngrok) e.g. https://your-ngrok-url.ngrok.io
-- PI_IP_ADDRESS : Raspberry Pi local IP (optional)
-- MODEL_PATH : path to tf.keras model (optional)
-- START_BACKGROUND_THREAD : "1" to start background thread (optional; helpful in dev)
-"""
 
 from flask import Flask, render_template, redirect, url_for, session, Response, jsonify, request, flash
 import cv2
@@ -33,6 +19,7 @@ import traceback
 # -------------------------
 # Config via environment
 # -------------------------
+
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "citropascan_secret_key_dev")
 FLASK_SERVER_URL = os.getenv("FLASK_SERVER_URL", "https://semicaricatural-elizabet-proximal.ngrok-free.dev")
 PI_IP_ADDRESS = os.getenv("PI_IP_ADDRESS", "192.168.254.109")
@@ -92,6 +79,31 @@ def safe_print(*args, **kwargs):
 
 # -------------------------
 # Firebase initialization (env-friendly)
+
+firebase_available = False
+db = None
+
+try:
+    firebase_json = os.getenv("FIREBASE_CREDENTIALS")
+
+    if not firebase_json:
+        raise ValueError("❌ FIREBASE_CREDENTIALS env var is missing")
+
+    cred_dict = json.loads(firebase_json)
+
+    # Fix newline formatting
+    if "private_key" in cred_dict:
+        cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
+
+    db = firestore.client()
+    firebase_available = True
+    print("🔥 Firebase initialized via ENV")
+
+except Exception as e:
+    print("❌ Firebase initialization error:", e)
 # -------------------------
 def init_firebase():
     global db, firebase_available
