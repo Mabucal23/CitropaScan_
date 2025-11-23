@@ -21,6 +21,3 @@ build/
 dist/
 *.egg-info
 
-# .gitignore
-serviceAccountKey.json
-serviceAccountKey.json 
