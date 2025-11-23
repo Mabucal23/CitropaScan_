@@ -79,14 +79,15 @@ def safe_print(*args, **kwargs):
 # -------------------------
 # Firebase initialization
 # -------------------------
-
 def init_firebase():
     global db, firebase_available
     try:
+        # Try to load from environment variable first
         firebase_json = os.getenv("FIREBASE_CREDENTIALS")
         if firebase_json:
             cred_dict = json.loads(firebase_json)
             if "private_key" in cred_dict:
+                # Fix newlines in private_key
                 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
@@ -94,6 +95,8 @@ def init_firebase():
             firebase_available = True
             safe_print("✅ Firebase initialized from ENV.")
             return
+
+        # Fallback to local file
         if os.path.exists(SERVICE_ACCOUNT_FILE):
             cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
             firebase_admin.initialize_app(cred)
@@ -101,15 +104,17 @@ def init_firebase():
             firebase_available = True
             safe_print("✅ Firebase initialized from local file.")
             return
+
+        # If neither is available, disable Firebase safely
         safe_print("⚠️ Firebase credentials not found. Features disabled.")
         firebase_available = False
+
     except Exception as e:
         safe_print("❌ Firebase init error:", e)
         traceback.print_exc()
         firebase_available = False
 
 init_firebase()
-
 # -------------------------
 # Mail Setup
 # -------------------------
